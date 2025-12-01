@@ -1,13 +1,13 @@
 package models
 
 type Order struct {
-	ID        uint `gorm:"primaryKey"`
+	ID        uint `gorm:"primaryKey" json:"id"`
 
-	UserID    uint
-	User      User `gorm:"foreignKey:UserID"`
+	UserID    uint `json:"user_id"`
+	User      User `gorm:"foreignKey:UserID" json:"user"`
 
-	ProductID uint
-	Product   Product `gorm:"foreignKey:ProductID"`
+	ProductID uint    `json:"product_id"`
+	Product   Product `gorm:"foreignKey:ProductID" json:"product"`
 
-	Quantity  int
+	Quantity  int `json:"quantity"`
 }

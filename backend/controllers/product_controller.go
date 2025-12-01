@@ -5,6 +5,7 @@ import (
 	"ecommerce/backend/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 )
 
 func GetProducts(c *gin.Context) {
@@ -25,17 +26,27 @@ func GetProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, product)
 }
 
+
 func CreateProduct(c *gin.Context) {
 	var product models.Product
 
-	if err := c.ShouldBindJSON(&product); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	product.Title = c.PostForm("title")
+	product.Description = c.PostForm("description")
+	price, _ := strconv.Atoi(c.PostForm("price"))
+	product.Price = price
+
+	file, err := c.FormFile("image")
+	if err == nil {
+		filename := "uploads/" + file.Filename
+		c.SaveUploadedFile(file, filename)
+		product.Image = filename
 	}
 
 	database.DB.Create(&product)
+
 	c.JSON(http.StatusCreated, product)
 }
+
 
 func UpdateProduct(c *gin.Context) {
 	id := c.Param("id")
@@ -46,11 +57,23 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	c.ShouldBindJSON(&product)
+	product.Title = c.PostForm("title")
+	product.Description = c.PostForm("description")
+	price, _ := strconv.Atoi(c.PostForm("price"))
+	product.Price = price
+
+	file, err := c.FormFile("image")
+	if err == nil {
+		filename := "uploads/" + file.Filename
+		c.SaveUploadedFile(file, filename)
+		product.Image = filename
+	}
+
 	database.DB.Save(&product)
 
 	c.JSON(http.StatusOK, product)
 }
+
 
 func DeleteProduct(c *gin.Context) {
 	id := c.Param("id")

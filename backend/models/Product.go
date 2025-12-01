@@ -1,10 +1,10 @@
 package models
 
 type Product struct {
-	ID    uint   `gorm:"primaryKey"`
-	Title string
-	Price int
-	Description string
-	Category string
-	Image string
+	ID          uint   `gorm:"primaryKey" json:"id"`
+	Title       string `json:"title"`
+	Price       int    `json:"price"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Image       string `json:"image"`
 }
