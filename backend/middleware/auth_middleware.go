@@ -29,13 +29,11 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		// store user id in context for handlers
 		c.Set(userIDKey, claims.UserID)
 		c.Next()
 	}
 }
 
-// helper to get user id from context in handlers
 func GetUserID(c *gin.Context) (uint, bool) {
 	v, ok := c.Get(userIDKey)
 	if !ok {

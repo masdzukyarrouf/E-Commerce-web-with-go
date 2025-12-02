@@ -21,7 +21,6 @@ func main() {
 	database.ConnectDB()
 	database.Migrate()
 
-	// ⬇️ VERIFY TABLES EXIST
 	var tables []string
 	database.DB.Raw(`
         SELECT table_name 

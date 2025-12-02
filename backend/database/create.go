@@ -15,7 +15,6 @@ func CreateDBIfNotExists() {
 	dbname := os.Getenv("DB_NAME")
 	port := os.Getenv("DB_PORT")
 
-	// connect to default "postgres" DB
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=postgres port=%s sslmode=disable",
 		host, user, password, port,
@@ -27,7 +26,6 @@ func CreateDBIfNotExists() {
 	}
 	defer db.Close()
 
-	// check if db exists
 	var exists bool
 	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbname).Scan(&exists)
 	if err != nil {
