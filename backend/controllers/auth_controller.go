@@ -10,7 +10,6 @@ import (
 )
 
 type registerPayload struct {
-	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
@@ -35,7 +34,7 @@ func Register(c *gin.Context) {
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	user := models.User{
-		Name:     body.Name,
+		Name:     body.Email,
 		Email:    body.Email,
 		Password: string(hashed),
 	}
