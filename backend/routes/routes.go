@@ -12,12 +12,17 @@ func RegisterRoutes(r *gin.Engine) {
 
 	api.POST("/register", controllers.Register)
 	api.POST("/login", controllers.Login)
+	
 	api.GET("/products", controllers.GetProducts)
 	api.GET("/products/:id", controllers.GetProduct)
-
+	
 	protected := api.Group("/")
 	protected.Use(middleware.AuthRequired())
 	{
+		protected.POST("/products", controllers.CreateProduct)
+		protected.PUT("/products/:id", controllers.UpdateProduct)
+		protected.DELETE("/products/:id", controllers.DeleteProduct)
+
 		protected.GET("/me", func(c *gin.Context) {
 			if id, ok := middleware.GetUserID(c); ok {
 				c.JSON(200, gin.H{"user_id": id})
@@ -37,16 +42,4 @@ func RegisterRoutes(r *gin.Engine) {
 		protected.DELETE("/orders/:id", controllers.DeleteOrder)
 	}
 
-	// ADMIN
-	admin := api.Group("/admin")
-	admin.Use(middleware.AuthRequired(), middleware.AdminOnly())
-	{
-		admin.POST("/products", controllers.CreateProduct)
-		admin.PUT("/products/:id", controllers.UpdateProduct)
-		admin.DELETE("/products/:id", controllers.DeleteProduct)
-
-		admin.POST("/users", controllers.CreateUser)
-
-		// admin.GET("/admin/orders", controllers.GetAllOrders)
-	}
 }

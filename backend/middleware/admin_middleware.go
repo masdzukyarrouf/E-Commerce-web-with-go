@@ -1,38 +1,31 @@
 package middleware
 
 import (
-	"ecommerce/backend/utils"
+	"ecommerce/backend/database"
+	"ecommerce/backend/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"strings"
 )
 
 func AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		auth := c.GetHeader("Authorization")
-		if auth == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization required"})
+		userID, exists := GetUserID(c)
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			return
 		}
-
-		parts := strings.SplitN(auth, " ", 2)
-		if len(parts) != 2 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err != nil {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-
-		claims, err := utils.ParseToken(parts[1])
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		
+		if user.Role != "admin" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required"})
 			return
 		}
-
-		if claims.Role != "admin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin only"})
-			return
-		}
-
-		c.Set("userID", claims.UserID)
+		
 		c.Next()
 	}
 }
