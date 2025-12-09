@@ -38,7 +38,6 @@ export async function POST(req) {
     
     const response = NextResponse.json(data, { status: 200 });
     
-    // set cookie 
     response.cookies.set({
       name: 'token',
       value: data.token,

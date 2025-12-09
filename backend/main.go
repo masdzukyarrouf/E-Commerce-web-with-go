@@ -3,6 +3,7 @@ package main
 import (
 	"ecommerce/backend/database"
 	"ecommerce/backend/routes"
+	// "ecommerce/backend/seeds"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -36,6 +37,12 @@ func main() {
 
 	fmt.Println("Tables in DB:", tables)
 	createUploadsDir()
+
+	// db := database.DB
+	// seeder := seeds.NewSeeder(db)
+	// if err := seeder.Seed(); err != nil {
+	// 	log.Fatal("❌ Seeding failed:", err)
+	// }
 
 	app := gin.Default()
 
