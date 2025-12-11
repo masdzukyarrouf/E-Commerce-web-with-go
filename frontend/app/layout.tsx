@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import { AlertProvider } from "./context/AlertContext";
+import { AuthProvider } from "./context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,13 +29,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="flex">
-        <AlertProvider>
-          <Sidebar />
-          <div className="flex-1">
-            <Navbar />
-            <main className="p-6">{children}</main>
-          </div>
-        </AlertProvider>
+        <AuthProvider>
+          <AlertProvider>
+            <Sidebar />
+            <div className="flex-1">
+              <Navbar />
+              <main className="p-6">{children}</main>
+            </div>
+          </AlertProvider>
+        </AuthProvider>
       </body>
     </html>
   );

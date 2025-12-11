@@ -5,6 +5,24 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
+const getUser = () => {
+  if (typeof window === 'undefined') return null;
+  
+  const userCookie = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('user='))
+    ?.split('=')[1];
+    
+  if (userCookie) {
+    try {
+      return JSON.parse(decodeURIComponent(userCookie));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 export default function ProductDetailClient({ initialProduct }) {
   const [product, setProduct] = useState(initialProduct);
   const [loading, setLoading] = useState(!initialProduct);
@@ -19,10 +37,16 @@ export default function ProductDetailClient({ initialProduct }) {
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [updateMessage, setUpdateMessage] = useState({ type: "", text: "" });
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     setBackendUrl(process.env.BACKEND_URL || "http://localhost:8080");
+
+    const userData = getUser();
+  setUser(userData);
+  setIsAdmin(userData?.role === 'admin');
 
     if (!initialProduct) {
       fetchProduct();
@@ -64,6 +88,10 @@ export default function ProductDetailClient({ initialProduct }) {
   };
 
   const handleEdit = () => {
+    if (!isAdmin) {
+      alert("You need admin privileges to edit products");
+      return;
+    }
     setIsEditing(true);
   };
 
@@ -87,83 +115,109 @@ export default function ProductDetailClient({ initialProduct }) {
   };
 
   const handleUpdate = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(editForm),
-      });
+  try {
+    setLoading(true);
+    
+    const token = localStorage.getItem('token') || 
+      document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+    
+    console.log("Token for update:", token ? "Present" : "Missing");
 
-      if (!res.ok) {
-        throw new Error("Failed to update product");
+    const res = await fetch(`/api/products/${product.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify(editForm),
+    });
+
+    if (!res.ok) {
+      let errorDetails = '';
+      try {
+        const errorData = await res.json();
+        errorDetails = JSON.stringify(errorData);
+      } catch {
+        errorDetails = await res.text();
       }
-
-      const updatedProduct = await res.json();
-      setProduct(updatedProduct);
-      setIsEditing(false);
-
-      setUpdateMessage({
-        type: "success",
-        text: "Product updated successfully!",
-      });
-
-      setTimeout(() => {
-        setUpdateMessage({ type: "", text: "" });
-      }, 3000);
-    } catch (error) {
-      console.error("Error updating product:", error);
-      setUpdateMessage({
-        type: "error",
-        text: "Failed to update product",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this product? This action cannot be undone."
-      )
-    ) {
-      return;
+      
+      console.log("=== UPDATE DEBUG ===");
+      console.log("Response Status:", res.status, res.statusText);
+      console.log("Response Error:", errorDetails);
+      console.log("Request payload:", editForm);
+      console.log("Token present:", !!token);
+      
+      throw new Error(`Failed to update product: ${res.status} ${res.statusText} - ${errorDetails}`);
     }
 
-    try {
-      setIsDeleting(true);
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: "DELETE",
-      });
+    const updatedProduct = await res.json();
+    setProduct(updatedProduct);
+    setIsEditing(false);
 
-      if (!res.ok) {
-        throw new Error("Failed to delete product");
-      }
+    setUpdateMessage({
+      type: "success",
+      text: "Product updated successfully!",
+    });
 
-      setUpdateMessage({
-        type: "success",
-        text: "Product deleted successfully!",
-      });
+    setTimeout(() => {
+      setUpdateMessage({ type: "", text: "" });
+    }, 3000);
+  } catch (error) {
+    console.error("Error updating product:", error);
+    setUpdateMessage({
+      type: "error",
+      text: error.message || "Failed to update product",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
-      setTimeout(() => {
-        router.push("/products");
-        router.refresh();
-      }, 2000);
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      setUpdateMessage({
-        type: "error",
-        text: "Failed to delete product",
-      });
-    } finally {
-      setIsDeleting(false);
+const handleDelete = async () => {
+  if (!isAdmin) {
+    alert('You need admin privileges to delete products');
+    return;
+  }
+  
+  if (!confirm("Are you sure you want to delete this product?")) {
+    return;
+  }
+
+  try {
+    setIsDeleting(true);
+    
+    const res = await fetch(`/api/products/${product.id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to delete product");
     }
-  };
+
+    setUpdateMessage({
+      type: "success",
+      text: "Product deleted successfully!",
+    });
+
+    setTimeout(() => {
+      router.push("/products");
+    }, 2000);
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    setUpdateMessage({
+      type: "error",
+      text: error.message || "Failed to delete product",
+    });
+  } finally {
+    setIsDeleting(false);
+  }
+}
 
   const handleAddToCart = () => {
     setUpdateMessage({
@@ -377,10 +431,7 @@ export default function ProductDetailClient({ initialProduct }) {
                 )}
               </div>
 
-              {!isEditing && (
-                <div className="grid grid-cols-4 gap-2">
-                </div>
-              )}
+              {!isEditing && <div className="grid grid-cols-4 gap-2"></div>}
             </div>
 
             <div className="p-8">
@@ -584,77 +635,130 @@ export default function ProductDetailClient({ initialProduct }) {
                       </button>
                     </div>
 
-                    <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <button
-                        onClick={handleEdit}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                      >
-                        <svg
-                          className="w-4 h-4 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                    {isAdmin && (
+                      <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                          onClick={handleEdit}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Edit Product
-                      </button>
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          Edit Product
+                        </button>
 
-                      <button
-                        onClick={handleDelete}
-                        disabled={isDeleting}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 dark:text-red-400 dark:bg-red-900/30 dark:hover:bg-red-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {isDeleting ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700 mr-2"></div>
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="w-4 h-4 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                            Delete Product
-                          </>
-                        )}
-                      </button>
-
-                      <Link
-                        href="/products"
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                      >
-                        <svg
-                          className="w-4 h-4 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                        <button
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 dark:text-red-400 dark:bg-red-900/30 dark:hover:bg-red-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                          />
-                        </svg>
-                        Back to Products
-                      </Link>
-                    </div>
+                          {isDeleting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700 mr-2"></div>
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-4 h-4 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                              Delete Product
+                            </>
+                          )}
+                        </button>
+
+                        <Link
+                          href="/products"
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                            />
+                          </svg>
+                          Back to Products
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* SHOW FOR NON-ADMINS (BUT LOGGED IN) */}
+                    {user && !isAdmin && (
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                          Only administrators can edit or delete products.
+                        </div>
+                        <Link
+                          href="/products"
+                          className="inline-flex items-center px-4 py-2 mt-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                            />
+                          </svg>
+                          Back to Products
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* SHOW FOR GUESTS (NOT LOGGED IN) */}
+                    {!user && (
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 italic mb-2">
+                          Please login to access admin features.
+                        </div>
+                        <div className="flex space-x-2">
+                          <Link
+                            href="/auth/login"
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                          >
+                            Login
+                          </Link>
+                          <Link
+                            href="/products"
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                          >
+                            Back to Products
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

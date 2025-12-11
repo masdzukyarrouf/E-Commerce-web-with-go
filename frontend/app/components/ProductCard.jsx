@@ -57,12 +57,12 @@ export default function ProductCard({ product }) {
           </p>
         )}
 
-        <div className="flex items-center justify-between mt-4">
           <div>
             <span className="text-2xl font-bold text-gray-900 dark:text-white">
               ${product.price}
             </span>
           </div>
+        <div className="flex items-center justify-between mt-4">
 
           <div className="flex space-x-2">
             <Link

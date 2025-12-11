@@ -40,8 +40,8 @@ export async function PUT(request, { params }) {
     const { id } = await params; 
     console.log("Updating product ID:", id);
     
-    const authHeader = request.headers.get('authorization');
-    console.log("Auth header present:", !!authHeader);
+    const token = request.cookies.get('token')?.value;
+    console.log("Token from cookies:", token ? "Present" : "Missing");
     
     const contentType = request.headers.get('content-type') || '';
     let response;
@@ -51,8 +51,8 @@ export async function PUT(request, { params }) {
       const formData = await request.formData();
       
       const headers = {};
-      if (authHeader) {
-        headers['Authorization'] = authHeader; 
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`; 
       }
       
       response = await fetch(`${API_URL}/products/${id}`, {
@@ -69,8 +69,8 @@ export async function PUT(request, { params }) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
-      if (authHeader) {
-        headers['Authorization'] = authHeader; 
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`; 
       }
       
       response = await fetch(`${API_URL}/products/${id}`, {
@@ -108,17 +108,22 @@ export async function DELETE(request, { params }) {
     
     console.log("Deleting product ID:", id);
     
-    const authHeader = request.headers.get('authorization');
+    const token = request.cookies.get('token')?.value;
+    console.log("Token from cookies for DELETE:", token ? "Present" : "Missing");
     
-    const headers = {};
-    if (authHeader) {
-      headers['Authorization'] = authHeader; 
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`; 
     }
     
     const response = await fetch(`${API_URL}/products/${id}`, {
       method: 'DELETE',
       headers: headers,
     });
+    
+    console.log("Backend DELETE response status:", response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
